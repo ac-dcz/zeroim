@@ -1,25 +1,32 @@
-package libnet
+package protocol
 
 import (
 	"net"
 	"testing"
+	"time"
 )
 
 func TestCodec(t *testing.T) {
-	msg := &Message{
-		Header: Header{
-			Version:   1,
-			Status:    1,
-			ServiceId: 2,
-			Cmd:       5,
-			Seq:       6,
+	msg := &IMMessage{
+		H: Header{
+			Version:    1,
+			StatusCode: 200,
+			MsgType:    PrivateChat,
+			Seq:        0,
 		},
-		Body: []byte{'a', 'b', 'c'},
+		Body: &PrivateChatMessage{
+			From:        1,
+			To:          0,
+			Ts:          uint64(time.Now().Unix()),
+			ContentType: 1,
+			Data:        []byte{'a', 'b', 'c'},
+		},
 	}
 	listen, err := net.Listen("tcp", ":8080")
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer listen.Close()
 	go func() {
 		conn, err := net.Dial("tcp", ":8080")
 		if err != nil {
@@ -40,6 +47,10 @@ func TestCodec(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Log(data.Header)
-	t.Log(data.Body)
+	t.Logf("Header: %#v \n", data.H)
+	t.Logf("Body: %#v \n", data.Body)
+
+	if data.H != msg.H {
+		t.Fatal("data error")
+	}
 }

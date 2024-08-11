@@ -60,17 +60,10 @@ func (c *client) registry(s *sd.Service) error {
 	}
 
 	go func() {
-		for {
-			select {
-			case q, ok := <-lch:
-				if !ok {
-					logx.Debugf("%s Lease is expired", s.Key())
-					return
-				} else {
-					logx.Debugf("%s Lease keep live ID: %d", s.Key(), q.ID)
-				}
-			}
+		for q := range lch {
+			logx.Debugf("%s Lease keep live ID: %d", s.Key(), q.ID)
 		}
+		logx.Debugf("%s Lease is expired", s.Key())
 	}()
 
 	return nil

@@ -1,4 +1,4 @@
-package immq
+package main
 
 func main() {
 
