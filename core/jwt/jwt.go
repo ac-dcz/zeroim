@@ -26,7 +26,7 @@ func BuildToken(opt *TokenOption, payLoad map[string]interface{}) (string, error
 }
 
 func VerifyToken(opt *TokenOption, tokenString string) (map[string]interface{}, error) {
-	token, err := jwt.NewParser().Parse(tokenString, func(t *jwt.Token) (interface{}, error) {
+	token, err := jwt.NewParser(jwt.WithJSONNumber()).Parse(tokenString, func(t *jwt.Token) (interface{}, error) {
 		return []byte(opt.AccessSecret), nil
 	})
 	if err != nil {

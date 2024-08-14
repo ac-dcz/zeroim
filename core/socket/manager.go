@@ -11,8 +11,8 @@ type SessionHandle func(s *Session)
 type Manager struct {
 	sMutex        sync.Mutex
 	sessions      map[session.SessionID]*Session
-	BeforeAddFunc SessionHandle
-	AfterRemFunc  SessionHandle
+	beforeAddFunc []SessionHandle
+	afterRemFunc  []SessionHandle
 	closeFlag     bool
 	cMutex        sync.Mutex
 }
@@ -23,12 +23,26 @@ func NewManager() *Manager {
 	}
 }
 
+func (m *Manager) AddBeforeAddFunc(handle ...SessionHandle) {
+	m.sMutex.Lock()
+	defer m.sMutex.Unlock()
+	m.beforeAddFunc = append(m.beforeAddFunc, handle...)
+}
+
+func (m *Manager) AddAfterRemFunc(handle ...SessionHandle) {
+	m.sMutex.Lock()
+	defer m.sMutex.Unlock()
+	m.afterRemFunc = append(m.afterRemFunc, handle...)
+}
+
 func (m *Manager) AddSession(s *Session) error {
 	m.sMutex.Lock()
 	defer m.sMutex.Unlock()
-	if m.BeforeAddFunc != nil {
-		go m.BeforeAddFunc(s)
+
+	for _, fn := range m.beforeAddFunc {
+		fn(s)
 	}
+
 	m.sessions[s.sessionID] = s
 	return nil
 }
@@ -37,10 +51,10 @@ func (m *Manager) RemSession(sessionID session.SessionID) error {
 	m.sMutex.Lock()
 	defer m.sMutex.Unlock()
 	if session, ok := m.sessions[sessionID]; ok {
-		if m.AfterRemFunc != nil {
-			go m.AfterRemFunc(session)
-			delete(m.sessions, sessionID)
+		for _, fn := range m.afterRemFunc {
+			fn(session)
 		}
+		delete(m.sessions, sessionID)
 	}
 	return nil
 }
