@@ -2,7 +2,7 @@ package sd
 
 import (
 	"encoding/json"
-	"strconv"
+	"fmt"
 )
 
 type EdgeEndpoint struct {
@@ -17,7 +17,7 @@ type KafkaInfo struct {
 }
 
 func (e *EdgeEndpoint) Key() string {
-	return strconv.FormatInt(e.EdgeId, 10)
+	return fmt.Sprintf("Edge#%d", e.EdgeId)
 }
 
 func (e *EdgeEndpoint) Encode() ([]byte, error) {

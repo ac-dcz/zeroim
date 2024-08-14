@@ -14,7 +14,8 @@ import (
 type Session struct {
 	EdgeId    uint64
 	Uid       uint64
-	msgChan   chan *protocol.IMMessage
+	wmsgChan  chan *protocol.IMMessage
+	rmsgChan  chan *protocol.IMMessage
 	cc        protocol.Codec
 	manager   *Manager
 	sessionID session.SessionID
@@ -29,12 +30,17 @@ func NewSession(edgeId uint64, cc protocol.Codec, manager *Manager, tokenOpt *jw
 		manager:  manager,
 		tokenOpt: tokenOpt,
 		EdgeId:   edgeId,
-		msgChan:  make(chan *protocol.IMMessage, 1000),
+		wmsgChan: make(chan *protocol.IMMessage, 1000),
+		rmsgChan: make(chan *protocol.IMMessage, 1000),
 	}
 }
 
 func (s *Session) SendMessage(msg *protocol.IMMessage) {
-	s.msgChan <- msg
+	s.wmsgChan <- msg
+}
+
+func (s *Session) ReadMessageChannel() <-chan *protocol.IMMessage {
+	return s.rmsgChan
 }
 
 func (s *Session) SessionID() session.SessionID {
@@ -62,33 +68,41 @@ func (s *Session) run() error {
 	//Step3: Message Loop
 	go s.messageLoop()
 
-	go s.healthListen()
-
 	return nil
 }
 
 func (s *Session) messageLoop() {
 	defer s.Close()
-	for msg := range s.msgChan {
-		if err := s.cc.Write(msg); err != nil {
-			log.Printf("Write Message Error: %v\n", err)
-			return
-		}
-	}
-}
+	wg := sync.WaitGroup{}
 
-func (s *Session) healthListen() {
-	defer s.Close()
-	for {
-		_, err := s.cc.Receive()
-		if err == io.EOF {
-			fmt.Printf("Connection %d is closed\n", s.Uid)
-			return
-		} else if err != nil {
-			fmt.Printf("Connection %d error: %v\n", s.Uid, err)
-			return
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for msg := range s.wmsgChan {
+			if err := s.cc.Write(msg); err != nil {
+				log.Printf("Write Message Error: %v\n", err)
+				return
+			}
 		}
-	}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			msg, err := s.cc.Receive()
+			if err == io.EOF {
+				fmt.Printf("Connection %d is closed\n", s.Uid)
+				return
+			} else if err != nil {
+				fmt.Printf("Connection %d error: %v\n", s.Uid, err)
+				return
+			}
+			s.rmsgChan <- msg
+		}
+	}()
+
+	wg.Wait()
 }
 
 func (s *Session) Close() error {
@@ -98,8 +112,8 @@ func (s *Session) Close() error {
 		return fmt.Errorf("session has been closed")
 	}
 	s.closeFlag = true
-
-	//RemSession
+	close(s.rmsgChan)
+	close(s.wmsgChan)
 	s.manager.RemSession(s.sessionID)
 	return s.cc.Close()
 }

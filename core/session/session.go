@@ -33,3 +33,7 @@ func NewSessionIDFromString(key string) (SessionID, error) {
 	}
 	return SessionID{Uid: u, EdgeId: e}, nil
 }
+
+func (s *SessionID) EtcdEdgeKey() string {
+	return fmt.Sprintf("Edge#%d", s.EdgeId)
+}
