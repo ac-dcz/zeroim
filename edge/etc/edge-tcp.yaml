@@ -1,0 +1,10 @@
+EdgeId: 1
+ListenOn: 127.0.0.1:8080
+Etcd:
+  Hosts:
+    - 127.0.0.1:2379
+Kq:
+  Brokers:
+    - 127.0.0.1:9092
+  Topic: Test-Edge#1-Topic
+  GroupID: Test-Edge#1-GroupID
